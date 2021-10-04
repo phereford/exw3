@@ -1,74 +1,81 @@
 defmodule ExW3.Contract do
   use GenServer
 
+  def supervised(name) do
+    DynamicSupervisor.start_child(
+      ExW3.ContractManager,
+      {ExW3.Contract, name}
+    )
+  end
+
   @doc "Begins the Contract process to manage all interactions with smart contracts"
-  @spec start_link() :: {:ok, pid()}
-  def start_link(_ \\ :ok) do
-    GenServer.start_link(__MODULE__, %{filters: %{}}, name: ContractManager)
+  @spec start_link(atom()) :: {:ok, pid()}
+  def start_link(name) do
+    GenServer.start_link(__MODULE__, %{filters: %{}}, name: name)
   end
 
   @doc "Deploys contracts with given arguments"
   @spec deploy(atom(), list()) :: {:ok, binary(), binary()}
   def deploy(name, args) do
-    GenServer.call(ContractManager, {:deploy, {name, args}})
+    GenServer.call(name, {:deploy, {name, args}})
   end
 
   @doc "Registers the contract with the ContractManager process. Only :abi is required field."
   @spec register(atom(), list()) :: :ok
   def register(name, contract_info) do
-    GenServer.cast(ContractManager, {:register, {name, contract_info}})
+    GenServer.cast(name, {:register, {name, contract_info}})
   end
 
   @doc "Uninstalls the filter, and deletes the data associated with the filter id"
-  @spec uninstall_filter(binary()) :: :ok
-  def uninstall_filter(filter_id) do
-    GenServer.cast(ContractManager, {:uninstall_filter, filter_id})
+  @spec uninstall_filter(atom(), binary()) :: :ok
+  def uninstall_filter(name, filter_id) do
+    GenServer.cast(name, {:uninstall_filter, filter_id})
   end
 
   @doc "Sets the address for the contract specified by the name argument"
   @spec at(atom(), binary()) :: :ok
   def at(name, address) do
-    GenServer.cast(ContractManager, {:at, {name, address}})
+    GenServer.cast(name, {:at, {name, address}})
   end
 
   @doc "Returns the current Contract GenServer's address"
   @spec address(atom()) :: {:ok, binary()}
   def address(name) do
-    GenServer.call(ContractManager, {:address, name})
+    GenServer.call(name, {:address, name})
   end
 
   @doc "Use a Contract's method with an eth_call"
   @spec call(atom(), atom(), list(), any()) :: {:ok, any()}
   def call(contract_name, method_name, args \\ [], timeout \\ :infinity) do
-    GenServer.call(ContractManager, {:call, {contract_name, method_name, args}}, timeout)
+    GenServer.call(contract_name, {:call, {contract_name, method_name, args}}, timeout)
   end
 
   @doc "Use a Contract's method with an eth_sendTransaction"
   @spec send(atom(), atom(), list(), map()) :: {:ok, binary()}
   def send(contract_name, method_name, args, options) do
-    GenServer.call(ContractManager, {:send, {contract_name, method_name, args, options}})
+    GenServer.call(contract_name, {:send, {contract_name, method_name, args, options}})
   end
 
   @doc "Returns a formatted transaction receipt for the given transaction hash(id)"
   @spec tx_receipt(atom(), binary()) :: map()
   def tx_receipt(contract_name, tx_hash) do
-    GenServer.call(ContractManager, {:tx_receipt, {contract_name, tx_hash}})
+    GenServer.call(contract_name, {:tx_receipt, {contract_name, tx_hash}})
   end
 
   @doc "Installs a filter on the Ethereum node. This also formats the parameters, and saves relevant information to format event logs."
   @spec filter(atom(), binary(), map()) :: {:ok, binary()}
   def filter(contract_name, event_name, event_data \\ %{}) do
     GenServer.call(
-      ContractManager,
+      contract_name,
       {:filter, {contract_name, event_name, event_data}}
     )
   end
 
   @doc "Using saved information related to the filter id, event logs are formatted properly"
-  @spec get_filter_changes(binary()) :: {:ok, list()}
-  def get_filter_changes(filter_id) do
+  @spec get_filter_changes(atom(), binary()) :: {:ok, list()}
+  def get_filter_changes(name, filter_id) do
     GenServer.call(
-      ContractManager,
+      name,
       {:get_filter_changes, filter_id}
     )
   end
